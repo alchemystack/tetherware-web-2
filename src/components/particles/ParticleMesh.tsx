@@ -42,13 +42,8 @@ export default function ParticleMesh({
 
   // Generate particle positions, scales, and randomness attributes
   const { positions, scales, randomness } = useMemo(() => {
-    // DEBUG: Log diagnostic information
-    console.log('[ParticleMesh DEBUG] ===================')
-    console.log('[ParticleMesh] Camera position:', camera.position.toArray())
-    console.log('[ParticleMesh] Canvas (pixels):', size.width, 'x', size.height)
-    console.log('[ParticleMesh] Viewport (Three.js units):', viewport.width, 'x', viewport.height)
-
-    // Calculate expected visible area at z=0 with perspective camera
+    // Calculate visible area at z=0 with perspective camera
+    // This is the actual world-space area the camera can see
     let visibleWidth = viewport.width
     let visibleHeight = viewport.height
     if ('fov' in camera) {
@@ -56,24 +51,15 @@ export default function ParticleMesh({
       const cameraZ = camera.position.z
       visibleHeight = 2 * Math.tan((fov * Math.PI / 180) / 2) * cameraZ
       visibleWidth = visibleHeight * (size.width / size.height)
-      console.log('[ParticleMesh] Camera FOV:', fov, 'Camera Z:', cameraZ)
-      console.log('[ParticleMesh] Calculated visible area at z=0:', visibleWidth.toFixed(0), 'x', visibleHeight.toFixed(0))
     }
 
-    // Calculate grid dimensions to cover 150% of viewport in each direction
+    // Calculate grid dimensions to cover 150% of visible area (extends beyond edges)
     const aspectRatio = size.width / size.height
     const coverageMultiplier = 1.5
 
-    // BUG CHECK: We're using pixel dimensions but should use Three.js world units!
-    const baseSize = Math.max(size.width, size.height) * coverageMultiplier
-    console.log('[ParticleMesh] Using baseSize (PIXELS - likely wrong!):', baseSize)
-    console.log('[ParticleMesh] Should use visible units instead:', Math.max(visibleWidth, visibleHeight) * coverageMultiplier)
-
-    // Calculate grid dimensions
-    const gridWidth = baseSize * aspectRatio
-    const gridHeight = baseSize
-    console.log('[ParticleMesh] Grid dimensions:', gridWidth.toFixed(0), 'x', gridHeight.toFixed(0))
-    console.log('[ParticleMesh DEBUG] ===================')
+    // FIX: Use visible world units, not pixel dimensions!
+    const gridWidth = visibleWidth * coverageMultiplier
+    const gridHeight = visibleHeight * coverageMultiplier
 
     // Calculate number of particles per dimension for roughly uniform density
     const particlesPerRow = Math.ceil(Math.sqrt(particleCount * aspectRatio))
@@ -106,12 +92,6 @@ export default function ParticleMesh({
 
         idx++
       }
-    }
-
-    // DEBUG: Log sample particle positions
-    console.log('[ParticleMesh] Sample positions (first 3 particles):')
-    for (let i = 0; i < Math.min(3, particleCount); i++) {
-      console.log('  Particle ' + i + ': (' + positions[i*3].toFixed(0) + ', ' + positions[i*3+1].toFixed(0) + ', ' + positions[i*3+2].toFixed(0) + ')')
     }
 
     return { positions, scales, randomness }
