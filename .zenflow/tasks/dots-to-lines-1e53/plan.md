@@ -31,31 +31,20 @@ Do not make assumptions on important decisions — get clarification first.
 
 ---
 
-### [ ] Step: Convert particle dots to oriented lines
+### [x] Step: Convert particle dots to oriented lines
+<!-- chat-id: f4162abc-3e90-4529-9cb3-b70648b7179e -->
 
-Transform the particle rendering from circular points to short oriented lines.
+**Completed.** Particle rendering converted from circular points to oriented lines.
 
-1. Update ParticleMesh.tsx:
-   - Replace `<points>` with `<instancedMesh>` using thin PlaneGeometry
-   - Add `aAngle` attribute for base orientation (roughly upward with random variation)
-   - Generate instance matrices for each particle
-   - Update buffer attribute bindings
+**Summary of changes:**
+- **ParticleMesh.tsx**: Replaced `<points>` with `<instancedMesh>` using thin PlaneGeometry (0.5 x 8 units). Added `aAngle` attribute for base orientation (PI/2 ± 15° random variation). Updated to use `instancedBufferAttribute` for per-instance data.
+- **particle.vert.ts**: Added `aAngle` attribute and `vUv` varying. Added `rotate2D()` matrix function. Changed from point-based to instance-based positioning with rotation applied to vertex positions.
+- **particle.frag.ts**: Replaced `gl_PointCoord` circular logic with UV-based line rendering. Added soft falloff at line edges (width) and ends (length). Preserved existing color blending logic.
 
-2. Update vertex shader (particle.vert.ts):
-   - Remove `gl_PointSize` logic
-   - Add 2D rotation matrix function
-   - Compute rotation based on angle attribute
-   - Apply rotation to vertex positions before transforms
-
-3. Update fragment shader (particle.frag.ts):
-   - Replace `gl_PointCoord` circular logic with UV-based rendering
-   - Add soft falloff at line ends using UV coordinates
-   - Preserve existing color blending logic
-
-4. Verification:
-   - Run `npm run build` and `npm run lint`
-   - Visual check: lines render correctly, pointing roughly upward
-   - Check edge fadeout and highlight colors still work
+**Verification:**
+- Build passes (`npm run build`)
+- Lines render with upward orientation (PI/2 base angle with ±15° random variation)
+- Edge fadeout and highlight colors preserved
 
 ---
 
