@@ -59,7 +59,7 @@ export default function Navigation() {
             {navItems.map((item) => {
               const isActive = location.pathname === item.href
               return (
-                <li key={item.href}>
+                <li key={item.href} className="group">
                   <Link
                     to={item.href}
                     className={cn(
@@ -71,17 +71,13 @@ export default function Navigation() {
                     )}
                   >
                     {item.label}
-                    {/* Underline indicator */}
+                    {/* Underline indicator - active state or hover animation */}
                     <span
                       className={cn(
                         'absolute -bottom-0.5 left-0 h-[1px] bg-cyan transition-all duration-300',
                         isActive ? 'w-full' : 'w-0 group-hover:w-full'
                       )}
                     />
-                    {/* Hover underline animation */}
-                    {!isActive && (
-                      <span className="absolute -bottom-0.5 left-0 w-0 h-[1px] bg-cyan/60 transition-all duration-300 hover:w-full" />
-                    )}
                   </Link>
                 </li>
               )

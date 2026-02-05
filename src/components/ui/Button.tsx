@@ -6,7 +6,7 @@ import { useReducedMotion } from '../../hooks/useReducedMotion'
 export interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'onClick'> {
   variant?: 'primary' | 'secondary' | 'ghost'
   size?: 'sm' | 'md' | 'lg'
-  onClick: () => void
+  onClick?: () => void
   disabled?: boolean
   loading?: boolean
   icon?: React.ReactNode

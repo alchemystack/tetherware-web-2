@@ -2,36 +2,12 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, Badge, Heading, Section } from '../components/ui'
-
-// Page transition variants
-const pageVariants = {
-  initial: { opacity: 0, y: 8 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -8 },
-}
-
-// Staggered content animation
-const containerVariants = {
-  hidden: {},
-  visible: {
-    transition: {
-      staggerChildren: 0.12,
-      delayChildren: 0.2,
-    },
-  },
-}
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.6,
-      ease: [0.22, 1, 0.36, 1],
-    },
-  },
-}
+import {
+  pageVariants,
+  pageTransition,
+  containerVariants,
+  itemVariants,
+} from '../lib/animations'
 
 // Research categories
 type Category = 'all' | 'papers' | 'experiments' | 'data' | 'tools'
@@ -162,7 +138,7 @@ export default function Explore() {
       initial="initial"
       animate="animate"
       exit="exit"
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      transition={pageTransition}
       className="min-h-screen"
     >
       {/* Hero Section */}
@@ -245,11 +221,6 @@ export default function Explore() {
               <Card
                 variant="glass"
                 hoverable
-                onClick={() => {
-                  // For now, cards link to a placeholder
-                  // In production, this would navigate to individual research pages
-                  console.log(`View details for: ${item.id}`)
-                }}
                 className="h-full flex flex-col"
               >
                 <div className="flex items-center gap-3 mb-4">
@@ -362,8 +333,6 @@ export default function Explore() {
         </div>
       </Section>
 
-      {/* Footer spacer */}
-      <div className="h-24" />
     </motion.div>
   )
 }

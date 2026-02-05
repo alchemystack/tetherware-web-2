@@ -1,36 +1,13 @@
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, Badge, Heading, Section } from '../components/ui'
-
-// Page transition variants
-const pageVariants = {
-  initial: { opacity: 0, y: 8 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -8 },
-}
-
-// Hero animation orchestration
-const heroContainerVariants = {
-  hidden: {},
-  visible: {
-    transition: {
-      staggerChildren: 0.15,
-      delayChildren: 0.2,
-    },
-  },
-}
-
-const heroItemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.6,
-      ease: [0.22, 1, 0.36, 1],
-    },
-  },
-}
+import {
+  pageVariants,
+  pageTransition,
+  heroContainerVariants,
+  heroItemVariants,
+  easeOutExpo,
+} from '../lib/animations'
 
 // Pillar card data
 const pillars = [
@@ -71,7 +48,7 @@ export default function Home() {
       initial="initial"
       animate="animate"
       exit="exit"
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      transition={pageTransition}
       className="min-h-screen"
     >
       {/* Hero Section - Full viewport, left-aligned for tension */}
@@ -203,7 +180,7 @@ export default function Home() {
               transition={{
                 duration: 0.6,
                 delay: index * 0.1,
-                ease: [0.22, 1, 0.36, 1],
+                ease: easeOutExpo,
               }}
             >
               <Card variant="glass" hoverable className="h-full">
@@ -269,9 +246,6 @@ export default function Home() {
           </Button>
         </div>
       </Section>
-
-      {/* Footer spacer */}
-      <div className="h-24" />
     </motion.div>
   )
 }

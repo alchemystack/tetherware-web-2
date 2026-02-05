@@ -2,36 +2,13 @@ import { useState, type FormEvent } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, Badge, Heading, Section, Input } from '../components/ui'
-
-// Page transition variants
-const pageVariants = {
-  initial: { opacity: 0, y: 8 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -8 },
-}
-
-// Staggered content animation
-const containerVariants = {
-  hidden: {},
-  visible: {
-    transition: {
-      staggerChildren: 0.12,
-      delayChildren: 0.2,
-    },
-  },
-}
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.6,
-      ease: [0.22, 1, 0.36, 1],
-    },
-  },
-}
+import {
+  pageVariants,
+  pageTransition,
+  containerVariants,
+  itemVariants,
+  easeOutExpo,
+} from '../lib/animations'
 
 // Core principles data
 const principles = [
@@ -148,7 +125,7 @@ export default function About() {
       initial="initial"
       animate="animate"
       exit="exit"
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      transition={pageTransition}
       className="min-h-screen"
     >
       {/* Hero Section */}
@@ -232,7 +209,7 @@ export default function About() {
               transition={{
                 duration: 0.6,
                 delay: index * 0.1,
-                ease: [0.22, 1, 0.36, 1],
+                ease: easeOutExpo,
               }}
             >
               <Card variant="outline" className="h-full">
@@ -277,7 +254,7 @@ export default function About() {
               transition={{
                 duration: 0.6,
                 delay: index * 0.1,
-                ease: [0.22, 1, 0.36, 1],
+                ease: easeOutExpo,
               }}
             >
               <Card variant="glass" className="h-full">
@@ -479,8 +456,6 @@ export default function About() {
         </div>
       </Section>
 
-      {/* Footer spacer */}
-      <div className="h-24" />
     </motion.div>
   )
 }
