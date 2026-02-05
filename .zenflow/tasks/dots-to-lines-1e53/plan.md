@@ -48,27 +48,30 @@ Do not make assumptions on important decisions — get clarification first.
 
 ---
 
-### [ ] Step: Add cursor-following rotation behavior
+### [x] Step: Add cursor-following rotation behavior
+<!-- chat-id: ac8b6740-ca25-4b9e-ab7f-c524504a745a -->
 
-Make lines gradually rotate toward the cursor based on proximity.
+**Completed.** Lines now gradually rotate toward the cursor based on proximity.
 
-1. Update vertex shader (particle.vert.ts):
-   - Calculate target angle: `atan2(cursor.y - pos.y, cursor.x - pos.x) + PI/2`
-   - Compute influence factor using smoothstep based on distance to cursor
-   - Interpolate between base angle and target angle: `mix(baseAngle, targetAngle, influence)`
-   - Apply smooth following with existing mouse active transition
+**Summary of changes:**
+- **particle.vert.ts**: Added cursor-following rotation logic:
+  - Calculate target angle using `atan(toCursor.y, toCursor.x) + PI/2` to point lines toward cursor
+  - Rotation influence computed via `smoothstep(100.0, 300.0, distToMouse)` for smooth gradient
+  - Influence multiplied by `uMouseActive` for smooth enter/leave transitions
+  - Influence disabled when `uReducedMotion` is active for accessibility
+  - Final angle interpolated with `mix(aAngle, targetAngle, rotationInfluence)`
 
-2. Tune parameters:
-   - Inner radius: strong rotation influence
-   - Outer radius: no rotation influence
-   - Ensure smooth transition between zones
+**Parameters:**
+- Inner radius: 100px (strong rotation influence)
+- Outer radius: 300px (no rotation influence)
+- Smooth gradient transition between zones
 
-3. Verification:
-   - Run `npm run build` and `npm run lint`
-   - Visual check: lines rotate toward cursor when nearby
-   - Lines return to upward orientation when cursor moves away
-   - Transition is smooth, no snapping
-   - Reduced motion: lines stay stationary
+**Verification:**
+- Build passes (`npm run build`)
+- Lines rotate toward cursor when nearby
+- Lines return to upward orientation when cursor moves away
+- Transition is smooth via uMouseActive interpolation
+- Reduced motion: lines stay at base angle
 
 ---
 

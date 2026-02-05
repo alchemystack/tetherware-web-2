@@ -200,14 +200,39 @@ export const particleVertexShader = /* glsl */ `
     float scalePulse = 1.0 + innerInfluence * 0.5 * sin(time * 4.0) * uMouseActive;
     float finalScale = aScale * scalePulse;
 
+    // ============================================
+    // CURSOR-FOLLOWING ROTATION
+    // ============================================
+
+    // Calculate target angle pointing toward cursor
+    // atan2 gives angle from particle to cursor, add PI/2 to orient the line toward cursor
+    vec2 toCursor = mouseWorld - animatedPos.xy;
+    float targetAngle = atan(toCursor.y, toCursor.x) + 1.5707963; // PI/2
+
+    // Calculate rotation influence based on distance to cursor
+    // Inner radius: strong rotation, outer radius: no rotation
+    float rotationInnerRadius = 100.0;
+    float rotationOuterRadius = 300.0;
+    float rotationInfluence = 1.0 - smoothstep(rotationInnerRadius, rotationOuterRadius, distToMouse);
+
+    // Apply mouse active factor for smooth transition when cursor enters/leaves
+    rotationInfluence *= uMouseActive;
+
+    // In reduced motion mode, lines stay at their base angle
+    rotationInfluence *= (1.0 - uReducedMotion);
+
+    // Interpolate between base angle and target angle
+    // Use the existing mouse active transition for smooth following with delay
+    float finalAngle = mix(aAngle, targetAngle, rotationInfluence);
+
     // Get the base vertex position from the plane geometry
     vec3 vertexPos = position;
 
     // Apply scale to the line dimensions
     vertexPos.xy *= finalScale;
 
-    // Rotate the vertex around Z axis by the angle
-    vertexPos.xy = rotate2D(aAngle) * vertexPos.xy;
+    // Rotate the vertex around Z axis by the final angle
+    vertexPos.xy = rotate2D(finalAngle) * vertexPos.xy;
 
     // Add the animated instance position
     vec3 finalPos = animatedPos + vertexPos;
