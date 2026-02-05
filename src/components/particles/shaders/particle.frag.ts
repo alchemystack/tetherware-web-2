@@ -1,6 +1,7 @@
 /**
  * Fragment shader for quantum interference particle field
- * Handles particle coloring with mouse-distance-based highlighting
+ * Handles line coloring with mouse-distance-based highlighting
+ * Uses UV coordinates for soft line edges
  */
 export const particleFragmentShader = /* glsl */ `
   uniform float uTime;
@@ -10,17 +11,23 @@ export const particleFragmentShader = /* glsl */ `
   varying float vDistance;
   varying float vOpacity;
   varying float vHighlight;
+  varying vec2 vUv;
 
   void main() {
-    // Create circular particle with soft edges
-    vec2 center = gl_PointCoord - vec2(0.5);
-    float dist = length(center);
+    // UV coordinates: x is across the line width, y is along the line length
+    // Both range from 0 to 1
 
-    // Discard pixels outside circle
-    if (dist > 0.5) discard;
+    // Soft falloff at line edges (width direction)
+    float edgeFalloffX = 1.0 - smoothstep(0.3, 0.5, abs(vUv.x - 0.5));
 
-    // Soft circular falloff
-    float alpha = 1.0 - smoothstep(0.2, 0.5, dist);
+    // Soft falloff at line ends (length direction)
+    float edgeFalloffY = 1.0 - smoothstep(0.35, 0.5, abs(vUv.y - 0.5));
+
+    // Combined alpha from edge falloffs
+    float alpha = edgeFalloffX * edgeFalloffY;
+
+    // Discard nearly transparent pixels
+    if (alpha < 0.01) discard;
 
     // Base color - cool gray/silver (particle-base from spec)
     vec3 baseColor = vec3(0.71, 0.75, 0.78); // rgb(180, 190, 200)
@@ -40,8 +47,9 @@ export const particleFragmentShader = /* glsl */ `
     color = mix(color, forestColor, forestMix);
     color = mix(color, highlightColor, highlightMix);
 
-    // Add subtle glow effect for highlighted particles
-    float glowIntensity = highlightMix * (1.0 - dist * 2.0) * 0.5;
+    // Add subtle glow effect for highlighted lines
+    float centerFalloff = 1.0 - length(vUv - vec2(0.5)) * 2.0;
+    float glowIntensity = highlightMix * max(centerFalloff, 0.0) * 0.5;
     color += highlightColor * glowIntensity;
 
     // Time-based subtle shimmer (disabled in reduced motion)
@@ -52,7 +60,7 @@ export const particleFragmentShader = /* glsl */ `
     // Final alpha with opacity from vertex shader
     float finalAlpha = alpha * vOpacity;
 
-    // Boost alpha for highlighted particles
+    // Boost alpha for highlighted lines
     finalAlpha *= 1.0 + highlightMix * 0.5;
 
     // Clamp to reasonable range

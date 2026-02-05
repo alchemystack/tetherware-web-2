@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useEffect } from 'react'
 import { useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { particleVertexShader, particleFragmentShader } from './shaders'
@@ -13,7 +13,7 @@ interface ParticleMeshProps {
 
 /**
  * ParticleMesh - GPU-instanced particle field
- * Creates a grid of particles that extends beyond the viewport
+ * Creates a grid of oriented lines that extend beyond the viewport
  * with quantum interference wave motion
  */
 export default function ParticleMesh({
@@ -21,7 +21,7 @@ export default function ParticleMesh({
   mobileOptimized = true,
 }: ParticleMeshProps) {
   const { size, viewport, camera } = useThree()
-  const pointsRef = useRef<THREE.Points>(null)
+  const meshRef = useRef<THREE.InstancedMesh>(null)
   const uniforms = useParticleUniforms()
 
   // Calculate particle count based on viewport and device
@@ -40,8 +40,30 @@ export default function ParticleMesh({
     return baseCount
   }, [baseCount, mobileOptimized, size.width, viewport.dpr])
 
-  // Generate particle positions, scales, and randomness attributes
-  const { positions, scales, randomness } = useMemo(() => {
+  // Generate particle attributes: scales, randomness, and angles
+  const { scales, randomness, angles } = useMemo(() => {
+    const scales = new Float32Array(particleCount)
+    const randomness = new Float32Array(particleCount)
+    const angles = new Float32Array(particleCount)
+
+    for (let i = 0; i < particleCount; i++) {
+      // Random scale for visual variety (0.5 to 1.5)
+      scales[i] = 0.5 + Math.random()
+
+      // Random value for shader effects (0 to 1)
+      randomness[i] = Math.random()
+
+      // Base angle: roughly upward (PI/2) with random variation (+/- 15 degrees)
+      const baseAngle = Math.PI / 2
+      const variation = (Math.random() - 0.5) * (Math.PI / 6) // +/- 15 degrees
+      angles[i] = baseAngle + variation
+    }
+
+    return { scales, randomness, angles }
+  }, [particleCount])
+
+  // Generate instance matrices for positions
+  const instanceMatrices = useMemo(() => {
     // Calculate visible area at z=0 with perspective camera
     // This is the actual world-space area the camera can see
     let visibleWidth = viewport.width
@@ -57,7 +79,7 @@ export default function ParticleMesh({
     const aspectRatio = size.width / size.height
     const coverageMultiplier = 1.5
 
-    // FIX: Use visible world units, not pixel dimensions!
+    // Use visible world units, not pixel dimensions
     const gridWidth = visibleWidth * coverageMultiplier
     const gridHeight = visibleHeight * coverageMultiplier
 
@@ -68,9 +90,11 @@ export default function ParticleMesh({
     const spacingX = gridWidth / particlesPerRow
     const spacingY = gridHeight / particlesPerCol
 
-    const positions = new Float32Array(particleCount * 3)
-    const scales = new Float32Array(particleCount)
-    const randomness = new Float32Array(particleCount)
+    const matrices = new Float32Array(particleCount * 16)
+    const tempMatrix = new THREE.Matrix4()
+    const tempPosition = new THREE.Vector3()
+    const tempQuaternion = new THREE.Quaternion()
+    const tempScale = new THREE.Vector3(1, 1, 1)
 
     let idx = 0
     for (let i = 0; i < particlesPerRow && idx < particleCount; i++) {
@@ -80,21 +104,15 @@ export default function ParticleMesh({
         const y = (j - particlesPerCol / 2) * spacingY + (Math.random() - 0.5) * spacingY * 0.5
         const z = 0 // Z will be animated in shader
 
-        positions[idx * 3] = x
-        positions[idx * 3 + 1] = y
-        positions[idx * 3 + 2] = z
-
-        // Random scale for visual variety (0.5 to 1.5)
-        scales[idx] = 0.5 + Math.random()
-
-        // Random value for shader effects (0 to 1)
-        randomness[idx] = Math.random()
+        tempPosition.set(x, y, z)
+        tempMatrix.compose(tempPosition, tempQuaternion, tempScale)
+        tempMatrix.toArray(matrices, idx * 16)
 
         idx++
       }
     }
 
-    return { positions, scales, randomness }
+    return matrices
   }, [particleCount, size.width, size.height, camera, viewport])
 
   // Create custom shader material
@@ -109,28 +127,42 @@ export default function ParticleMesh({
     })
   }, [uniforms])
 
+  // Create geometry for a single line (thin plane)
+  const lineGeometry = useMemo(() => {
+    // Thin rectangle: width is small (0.5), height is the line length (8)
+    const geometry = new THREE.PlaneGeometry(0.5, 8, 1, 1)
+    return geometry
+  }, [])
+
+  // Update instance matrices when they change
+  useEffect(() => {
+    if (meshRef.current) {
+      const tempMatrix = new THREE.Matrix4()
+      for (let i = 0; i < particleCount; i++) {
+        tempMatrix.fromArray(instanceMatrices, i * 16)
+        meshRef.current.setMatrixAt(i, tempMatrix)
+      }
+      meshRef.current.instanceMatrix.needsUpdate = true
+    }
+  }, [instanceMatrices, particleCount])
+
   return (
-    <points ref={pointsRef} material={shaderMaterial}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={particleCount}
-          array={positions}
-          itemSize={3}
-        />
-        <bufferAttribute
-          attach="attributes-aScale"
-          count={particleCount}
-          array={scales}
-          itemSize={1}
-        />
-        <bufferAttribute
-          attach="attributes-aRandomness"
-          count={particleCount}
-          array={randomness}
-          itemSize={1}
-        />
-      </bufferGeometry>
-    </points>
+    <instancedMesh
+      ref={meshRef}
+      args={[lineGeometry, shaderMaterial, particleCount]}
+    >
+      <instancedBufferAttribute
+        attach="geometry-attributes-aScale"
+        args={[scales, 1]}
+      />
+      <instancedBufferAttribute
+        attach="geometry-attributes-aRandomness"
+        args={[randomness, 1]}
+      />
+      <instancedBufferAttribute
+        attach="geometry-attributes-aAngle"
+        args={[angles, 1]}
+      />
+    </instancedMesh>
   )
 }

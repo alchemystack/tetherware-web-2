@@ -1,6 +1,7 @@
 /**
  * Vertex shader for quantum interference particle field
  * Creates organic wave motion with mouse-driven interference patterns
+ * Renders oriented lines instead of points
  */
 export const particleVertexShader = /* glsl */ `
   uniform float uTime;
@@ -13,10 +14,12 @@ export const particleVertexShader = /* glsl */ `
 
   attribute float aScale;
   attribute float aRandomness;
+  attribute float aAngle;
 
   varying float vDistance;
   varying float vOpacity;
   varying float vHighlight;
+  varying vec2 vUv;
 
   // Simplex 3D noise
   vec4 permute(vec4 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
@@ -98,8 +101,16 @@ export const particleVertexShader = /* glsl */ `
     return value;
   }
 
+  // 2D rotation matrix
+  mat2 rotate2D(float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return mat2(c, -s, s, c);
+  }
+
   void main() {
-    vec3 pos = position;
+    // Get instance position from instance matrix
+    vec3 instancePos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
 
     // Time factor (frozen if reduced motion)
     float time = uReducedMotion > 0.5 ? 0.0 : uTime;
@@ -116,8 +127,8 @@ export const particleVertexShader = /* glsl */ `
     waveAmplitude += uScrollVelocity * 2.0;
 
     vec3 noiseInput = vec3(
-      pos.x * waveFrequency,
-      pos.y * waveFrequency,
+      instancePos.x * waveFrequency,
+      instancePos.y * waveFrequency,
       time * 0.3
     );
 
@@ -125,13 +136,14 @@ export const particleVertexShader = /* glsl */ `
 
     // Secondary wave for complexity
     float wave2 = snoise(vec3(
-      pos.x * 0.008 + time * 0.1,
-      pos.y * 0.008,
+      instancePos.x * 0.008 + time * 0.1,
+      instancePos.y * 0.008,
       time * 0.15
     )) * 25.0;
 
-    // Combine waves
-    pos.z += wave + wave2;
+    // Apply waves to instance position
+    vec3 animatedPos = instancePos;
+    animatedPos.z += wave + wave2;
 
     // ============================================
     // MOUSE INTERFERENCE - Quantum ripple effect
@@ -141,7 +153,7 @@ export const particleVertexShader = /* glsl */ `
     vec2 mouseWorld = uMouse * vec2(uResolution.x * 0.5, uResolution.y * 0.5);
 
     // Distance from particle to mouse
-    float distToMouse = length(pos.xy - mouseWorld);
+    float distToMouse = length(animatedPos.xy - mouseWorld);
 
     // Define interference rings
     float innerRadius = 80.0;
@@ -166,26 +178,71 @@ export const particleVertexShader = /* glsl */ `
     float outerRipple = sin(distToMouse * 0.02 - time * 1.5) * outerInfluence * 10.0 * uMouseActive;
 
     // Apply mouse displacement
-    pos.z += interference + middleWave + outerRipple;
+    animatedPos.z += interference + middleWave + outerRipple;
 
     // Quantum tunneling - particles phase through in inner ring
     float tunneling = innerInfluence * sin(time * 5.0 + aRandomness * 6.28) * 15.0 * uMouseActive;
-    pos.z += tunneling;
+    animatedPos.z += tunneling;
 
     // ============================================
     // SCROLL PARALLAX
     // ============================================
 
     // Different layers move at different speeds based on Z
-    float parallaxFactor = (pos.z + 50.0) / 100.0; // Normalize to 0-1 range roughly
-    pos.y += uScroll * 200.0 * parallaxFactor;
+    float parallaxFactor = (animatedPos.z + 50.0) / 100.0; // Normalize to 0-1 range roughly
+    animatedPos.y += uScroll * 200.0 * parallaxFactor;
+
+    // ============================================
+    // LINE ROTATION - Apply angle to vertex position
+    // ============================================
+
+    // Scale based on aScale attribute with pulse effect near mouse
+    float scalePulse = 1.0 + innerInfluence * 0.5 * sin(time * 4.0) * uMouseActive;
+    float finalScale = aScale * scalePulse;
+
+    // ============================================
+    // CURSOR-FOLLOWING ROTATION
+    // ============================================
+
+    // Calculate target angle pointing toward cursor
+    // atan2 gives angle from particle to cursor, add PI/2 to orient the line toward cursor
+    vec2 toCursor = mouseWorld - animatedPos.xy;
+    float targetAngle = atan(toCursor.y, toCursor.x) + 1.5707963; // PI/2
+
+    // Calculate rotation influence based on distance to cursor
+    // Inner radius: strong rotation, outer radius: no rotation
+    float rotationInnerRadius = 100.0;
+    float rotationOuterRadius = 300.0;
+    float rotationInfluence = 1.0 - smoothstep(rotationInnerRadius, rotationOuterRadius, distToMouse);
+
+    // Apply mouse active factor for smooth transition when cursor enters/leaves
+    rotationInfluence *= uMouseActive;
+
+    // In reduced motion mode, lines stay at their base angle
+    rotationInfluence *= (1.0 - uReducedMotion);
+
+    // Interpolate between base angle and target angle
+    // Use the existing mouse active transition for smooth following with delay
+    float finalAngle = mix(aAngle, targetAngle, rotationInfluence);
+
+    // Get the base vertex position from the plane geometry
+    vec3 vertexPos = position;
+
+    // Apply scale to the line dimensions
+    vertexPos.xy *= finalScale;
+
+    // Rotate the vertex around Z axis by the final angle
+    vertexPos.xy = rotate2D(finalAngle) * vertexPos.xy;
+
+    // Add the animated instance position
+    vec3 finalPos = animatedPos + vertexPos;
 
     // ============================================
     // EDGE FADEOUT - No hard edges
     // ============================================
 
     // Calculate screen position for edge fadeout
-    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+    vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
     vec4 clipPos = projectionMatrix * mvPosition;
     vec2 screenPos = clipPos.xy / clipPos.w; // Normalized device coordinates
 
@@ -198,6 +255,9 @@ export const particleVertexShader = /* glsl */ `
     // OUTPUT
     // ============================================
 
+    // Pass UV coordinates to fragment shader
+    vUv = uv;
+
     // Pass distance to mouse for fragment shader highlighting
     vDistance = distToMouse;
 
@@ -206,14 +266,6 @@ export const particleVertexShader = /* glsl */ `
 
     // Final opacity with edge fade and randomness
     vOpacity = edgeFade * (0.4 + aRandomness * 0.4);
-
-    // Apply scale with slight pulse near mouse
-    float scalePulse = 1.0 + innerInfluence * 0.5 * sin(time * 4.0) * uMouseActive;
-    float finalScale = aScale * scalePulse;
-
-    // Point size based on scale and distance
-    gl_PointSize = finalScale * (300.0 / -mvPosition.z);
-    gl_PointSize = clamp(gl_PointSize, 1.0, 8.0);
 
     gl_Position = clipPos;
   }

@@ -2,8 +2,9 @@ import { Suspense, lazy, useState, useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { useReducedMotion } from '../../hooks/useReducedMotion'
 
-// Lazy load ParticleMesh for better initial load
+// Lazy load components for better initial load
 const ParticleMesh = lazy(() => import('./ParticleMesh'))
+const SunlightRays = lazy(() => import('./SunlightRays'))
 
 /**
  * ParticleField - Full viewport WebGL canvas with quantum particle system
@@ -87,6 +88,9 @@ export default function ParticleField() {
         <Suspense fallback={null}>
           {/* Ambient atmosphere - very subtle void lighting */}
           <ambientLight intensity={0.1} />
+
+          {/* Golden sunlight rays - rendered behind particles */}
+          <SunlightRays />
 
           {/* Particle system */}
           <ParticleMesh
